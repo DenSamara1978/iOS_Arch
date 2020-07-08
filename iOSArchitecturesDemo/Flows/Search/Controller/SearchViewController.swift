@@ -16,15 +16,14 @@ final class SearchViewController: UIViewController {
         return self.view as! SearchView
     }
     
-    private let searchService = ITunesSearchService()
-    internal var searchResults = [ITunesApp]() {
+    internal var searchResults = [Any]() {
         didSet {
             self.searchView.tableView.isHidden = false
             self.searchView.tableView.reloadData()
             self.searchView.searchBar.resignFirstResponder()
         }
     }
-    
+
     private struct Constants {
         static let reuseIdentifier = "reuseId"
     }
@@ -51,7 +50,11 @@ final class SearchViewController: UIViewController {
         super.viewDidLoad()
         self.navigationController?.navigationBar.prefersLargeTitles = true
         self.searchView.searchBar.delegate = self
-        self.searchView.tableView.register(AppCell.self, forCellReuseIdentifier: Constants.reuseIdentifier)
+        if self.tabBarController?.selectedIndex == 0 {
+            self.searchView.tableView.register(AppCell.self, forCellReuseIdentifier: Constants.reuseIdentifier)
+        } else {
+            self.searchView.tableView.register(SongCell.self, forCellReuseIdentifier: Constants.reuseIdentifier)
+        }
         self.searchView.tableView.delegate = self
         self.searchView.tableView.dataSource = self
     }
@@ -61,55 +64,7 @@ final class SearchViewController: UIViewController {
         self.throbber(show: false)
     }
     
-    // MARK: - Private
-    
-//    internal func throbber(show: Bool) {
-//        UIApplication.shared.isNetworkActivityIndicatorVisible = show
-//    }
-//
-//    internal func showError(error: Error) {
-//        let alert = UIAlertController(title: "Error", message: "\(error.localizedDescription)", preferredStyle: .alert)
-//        let actionOk = UIAlertAction(title: "OK", style: .cancel, handler: nil)
-//        alert.addAction(actionOk)
-//        self.present(alert, animated: true, completion: nil)
-//    }
-//
-//    internal func showNoResults() {
-//        self.searchView.emptyResultView.isHidden = false
-//    }
-//
-//    internal func hideNoResults() {
-//        self.searchView.emptyResultView.isHidden = true
-//    }
-    
-//    private func requestApps(with query: String) {
-//        self.throbber(show: true)
-//        self.searchResults = []
-//        self.searchView.tableView.reloadData()
-//
-//        self.searchService.getApps(forQuery: query) { [weak self] result in
-//            guard let self = self else { return }
-//            self.throbber(show: false)
-//            result
-//                .withValue { apps in
-//                    guard !apps.isEmpty else {
-//                        self.searchResults = []
-//                        self.showNoResults()
-//                        return
-//                    }
-//                    self.hideNoResults()
-//                    self.searchResults = apps
-//
-//                    self.searchView.tableView.isHidden = false
-//                    self.searchView.tableView.reloadData()
-//
-//                    self.searchView.searchBar.resignFirstResponder()
-//                }
-//                .withError {
-//                    self.showError(error: $0)
-//                }
-//        }
-//    }
+
 }
 
 //MARK: - UITableViewDataSource
@@ -121,13 +76,23 @@ extension SearchViewController: UITableViewDataSource {
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let dequeuedCell = tableView.dequeueReusableCell(withIdentifier: Constants.reuseIdentifier, for: indexPath)
-        guard let cell = dequeuedCell as? AppCell else {
-            return dequeuedCell
+        if self.tabBarController?.selectedIndex == 0 {
+            guard let cell = dequeuedCell as? AppCell, let app = searchResults[indexPath.row] as? ITunesApp else {
+                return dequeuedCell
+            }
+            cell.titleLabel.text = app.appName
+            cell.subtitleLabel.text = app.company
+            cell.ratingLabel.text = app.averageRating >>- { "\($0)" }
+            return cell
+        } else {
+            guard let cell = dequeuedCell as? SongCell, let song = searchResults[indexPath.row] as? ITunesSong else {
+                return dequeuedCell
+            }
+            cell.trackNameLabel.text = song.trackName
+            cell.artistNameLabel.text = song.artistName
+            cell.collectionNameLabel.text = song.collectionName
+            return cell
         }
-        let app = self.searchResults[indexPath.row]
-        let cellModel = AppCellModelFactory.cellModel(from: app)
-        cell.configure(with: cellModel)
-        return cell
     }
 }
 
@@ -135,12 +100,9 @@ extension SearchViewController: UITableViewDataSource {
 extension SearchViewController: UITableViewDelegate {
     
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        tableView.deselectRow(at: indexPath, animated: true)
-        let app = searchResults[indexPath.row]
-        self.presenter.viewDidSelectApp(app)
-//        let appDetaillViewController = AppDetailViewController(app:app)
-////        appDetaillViewController.app = app
-//        navigationController?.pushViewController(appDetaillViewController, animated: true)
+        self.searchView.tableView.deselectRow(at: indexPath, animated: true)
+        let item = searchResults[indexPath.row]
+        self.presenter.viewDidSelectItem(item)
     }
 }
 
@@ -156,14 +118,11 @@ extension SearchViewController: UISearchBarDelegate {
             searchBar.resignFirstResponder()
             return
         }
-//        self.requestApps(with: query)
         self.presenter.viewDidSearch(with: query)
     }
 }
 
 extension SearchViewController: SearchViewInput {
-    
-//        var searchResults: [ITunesApp] { get set }
     
     func showError(error: Error) {
         let alert = UIAlertController(title: "Error", message: "\(error.localizedDescription)", preferredStyle: .alert)
@@ -188,10 +147,3 @@ extension SearchViewController: SearchViewInput {
     
     
 }
-
-//let parent = UIViewController()
-//let child = UIViewController()
-//
-//parent.view.addSubview(child.view)
-//parent.addChild(child)
-//child.didMove(toParent: parent)

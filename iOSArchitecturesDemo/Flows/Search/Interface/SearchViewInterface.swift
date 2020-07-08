@@ -10,7 +10,7 @@ import Foundation
 
 protocol SearchViewInput: class {
     
-    var searchResults: [ITunesApp] { get set }
+    var searchResults: [Any] { get set }
     
     func showError(error: Error)
     
@@ -25,6 +25,6 @@ protocol SearchViewOutput: class {
     
     func viewDidSearch(with query: String)
     
-    func viewDidSelectApp(_ app: ITunesApp)
+    func viewDidSelectItem(_ item: Any)
     
 }

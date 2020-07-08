@@ -32,23 +32,45 @@ final class SearchPresenter {
             }
         }
     }
-    
-    private func openAppDetails(with app: ITunesApp) {
-        let appDetailViewController = AppDetailViewController(app: app)
-        
-        self.viewInput?.navigationController?.pushViewController(appDetailViewController, animated: true)
+
+    private func requestSongs(with query: String) {
+         self.searchService.getSongs(forQuery: query) { [weak self] result in
+             guard let self = self else { return }
+             self.viewInput?.throbber(show: false)
+             result
+                 .withValue { songs in
+                     guard !songs.isEmpty else {
+                         self.viewInput?.showNoResults()
+                         return
+                     }
+                     self.viewInput?.hideNoResults()
+                     self.viewInput?.searchResults = songs
+                 }
+                 .withError {
+                     self.viewInput?.showError(error: $0)
+             }
+         }
     }
 }
 
 extension SearchPresenter: SearchViewOutput {
     func viewDidSearch(with query: String) {
         self.viewInput?.throbber(show: true)
-        self.requestApps(with: query)
+        if viewInput?.tabBarController?.selectedIndex == 0 {
+            self.requestApps(with: query)
+        } else {
+            self.requestSongs(with: query)
+        }    }
+    
+    func viewDidSelectItem(_ item: Any) {
+        if viewInput?.tabBarController?.selectedIndex == 0 {
+            guard let app = item as? ITunesApp else { return }
+            let appDetailViewController = AppDetailViewController(app: app)
+            self.viewInput?.navigationController?.pushViewController(appDetailViewController, animated: true)
+        } else {
+            guard let song = item as? ITunesSong else { return }
+            let songDetailViewController = SongDetailViewController(song: song)
+            self.viewInput?.navigationController?.pushViewController(songDetailViewController, animated: true)
+        }
     }
-    
-    func viewDidSelectApp(_ app: ITunesApp) {
-        self.openAppDetails(with: app)
-    }
-    
-    
 }
