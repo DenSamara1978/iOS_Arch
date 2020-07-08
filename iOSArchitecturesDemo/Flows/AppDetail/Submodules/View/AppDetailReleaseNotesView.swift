@@ -37,7 +37,7 @@ class AppDetailReleaseNotesView: UIView {
     } ()
     
     private(set) lazy var versionHistoryButton: UIButton = {
-        let versionHistoryButton = UIButton ()
+        let versionHistoryButton = UIButton (type: .system)
         versionHistoryButton.contentHorizontalAlignment = .right
         versionHistoryButton.translatesAutoresizingMaskIntoConstraints = false
         versionHistoryButton.setTitle("История версий", for: .normal)
