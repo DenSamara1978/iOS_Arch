@@ -12,10 +12,16 @@ final class SearchPresenter {
     
     weak var viewInput: (UIViewController & SearchViewInput)?
     
-    private let searchService = ITunesSearchService()
+    private let searchInteractor: SearchInteractorInput
+    private let searchRouter: SearchRouterInput
+    
+    init (interactor: SearchInteractorInput, router: SearchRouterInput) {
+        self.searchInteractor = interactor
+        self.searchRouter = router
+    }
     
     private func requestApps(with query: String) {
-        self.searchService.getApps(forQuery: query) { [weak self] result in
+        self.searchInteractor.requestApps(with: query) { [weak self] result in
             guard let self = self else { return }
             self.viewInput?.throbber(show: false)
             result
@@ -32,23 +38,37 @@ final class SearchPresenter {
             }
         }
     }
-    
-    private func openAppDetails(with app: ITunesApp) {
-        let appDetailViewController = AppDetailViewController(app: app)
-        
-        self.viewInput?.navigationController?.pushViewController(appDetailViewController, animated: true)
+
+    private func requestSongs(with query: String) {
+         self.searchInteractor.requestSongs(with: query) { [weak self] result in
+             guard let self = self else { return }
+             self.viewInput?.throbber(show: false)
+             result
+                 .withValue { songs in
+                     guard !songs.isEmpty else {
+                         self.viewInput?.showNoResults()
+                         return
+                     }
+                     self.viewInput?.hideNoResults()
+                     self.viewInput?.searchResults = songs
+                 }
+                 .withError {
+                     self.viewInput?.showError(error: $0)
+             }
+         }
     }
 }
 
 extension SearchPresenter: SearchViewOutput {
     func viewDidSearch(with query: String) {
         self.viewInput?.throbber(show: true)
-        self.requestApps(with: query)
+        if viewInput?.tabBarController?.selectedIndex == 0 {
+            self.requestApps(with: query)
+        } else {
+            self.requestSongs(with: query)
+        }    }
+    
+    func viewDidSelectItem(_ item: Any) {
+        self.searchRouter.openDetailsFor(item)
     }
-    
-    func viewDidSelectApp(_ app: ITunesApp) {
-        self.openAppDetails(with: app)
-    }
-    
-    
 }
